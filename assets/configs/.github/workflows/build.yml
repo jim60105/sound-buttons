@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow
+# Workaround: https://github.com/redhat-developer/vscode-yaml/issues/397
+
+name: Minify and Build main repository
+on: push
+
+jobs:
+  build:
+    name: Dispatch to `sound-buttons`
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: json-syntax-check
+        uses: limitusus/json-syntax-check@v1
+        with:
+          pattern: "\\.json$"
+
+      - uses: zofrex/mirror-branch@v1
+        if: ${{ success() }}
+        with:
+          target-branch: minify
+
+      # Use https://github.com/Josee9988/MinifyAllCli
+      - name: Minify Action
+        run: 'npx @josee9988/minifyall -d .'
+
+      - name: Git Auto Commit
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          branch: minify
+          commit_message: "Github Action: Auto Minified HTML CSS JSON JSONC"
+          commit_user_name: Minify Action Bot # defaults to "GitHub Actions"
+          commit_author: Minify Action Bot <actions@github.com> # defaults to author of the commit that triggered the run
+
+      - name: Emit repository_dispatch
+        if: ${{ success() }}
+        uses: mvasigh/dispatch-action@main
+        with:
+          # You should create a personal access token and store it in your repository
+          token: ${{ secrets.ACCESS_TOKEN }}
+          repo: sound-buttons
+          event_type: update_config
